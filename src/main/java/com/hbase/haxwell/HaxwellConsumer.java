@@ -15,11 +15,10 @@
  */
 package com.hbase.haxwell;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
 import com.hbase.haxwell.api.HaxwellEvent;
@@ -48,7 +47,6 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -109,7 +107,8 @@ public class HaxwellConsumer extends HaxwellRegionServer {
 
         for (int i = 0; i < threadCount; i++) {
             ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 10, TimeUnit.SECONDS,
-                    new ArrayBlockingQueue<>(executorQueueSize));
+                    new ArrayBlockingQueue<>(executorQueueSize),
+                    new ThreadFactoryBuilder().setNameFormat("haxwell-consumer-" + i +"-%d").build());
             if(waitTimeout < 0) {
                 executor.setRejectedExecutionHandler(new WaitPolicy());
             } else {
@@ -129,7 +128,7 @@ public class HaxwellConsumer extends HaxwellRegionServer {
     }
 
     private List<RpcServer.BlockingServiceAndInterface> getServices() {
-        List<RpcServer.BlockingServiceAndInterface> bssi = new ArrayList<RpcServer.BlockingServiceAndInterface>(1);
+        List<RpcServer.BlockingServiceAndInterface> bssi = new ArrayList<>(1);
         bssi.add(new RpcServer.BlockingServiceAndInterface(
                 AdminProtos.AdminService.newReflectiveBlockingService(this),
                 AdminProtos.AdminService.BlockingInterface.class));

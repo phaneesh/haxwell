@@ -44,3 +44,10 @@ Note: Built and tested using HBase 1.1.2 on HDP 2.6.1.0-129
 * Use `HaxwellDemo.java` to start a simple console logging consumer
 * Use `HaxwellDemoIngester.java` to start writing sample data into `haxwell-demo` table
 * You can even do a `put` to `haxwell-demo` table from `hbase shell`
+
+
+### Configuration
+* `hbase.haxwell.consumers.handler.count` Total no of threads that consumer will use to process the events default value is `10`
+* `hbase.haxwell.consumers.events.batchsize` Event batch size. Default value `100`
+* `hbase.haxwell.consumers.execution.timeout.ms` Execution timeout set of each handler thread. Default value `-1` (No timeout)
+* `hbase.haxwell.consumers.handler.queue.size` Queue size for handler . Default value `100`
