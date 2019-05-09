@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+    <property>
+        <name>hbase.master.info.port</name>
+        <value>-1</value>
+    </property>
+    <property>
+        <name>hbase.regionserver.info.port</name>
+        <value>-1</value>
+    </property>
+    <property>
+        <name>hbase.regionserver.info.port.auto</name>
+        <value>true</value>
+    </property>
+    <property>
+        <name>hbase.regionserver.safemode</name>
+        <value>false</value>
+    </property>
+</configuration>
