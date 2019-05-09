@@ -52,14 +52,6 @@ public class HaxwellEventExecutor {
         futures = Lists.newArrayList();
     }
 
-    /**
-     * Schedule a {@link HaxwellEvent} for execution.
-     * <p>
-     * The event will be buffered until it can be executed within a batch of the configured batch size, or until the
-     * {@link #flush()} method is called.
-     *
-     * @param HaxwellEvent event to be scheduled
-     */
     public void scheduleHaxwellEvent(HaxwellEvent HaxwellEvent) {
 
         if (stopped) {
@@ -78,28 +70,20 @@ public class HaxwellEventExecutor {
     }
 
     private void scheduleEventBatch(int partition, final List<HaxwellEvent> events) {
-        Future<?> future = executors.get(partition).submit(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    long before = System.currentTimeMillis();
-                    log.debug("Delivering message to listener");
-                    eventListener.processEvents(events);
-                    HaxwellMetrics.reportFilteredOperation(System.currentTimeMillis() - before);
-                } catch (RuntimeException e) {
-                    log.error("Error while processing event", e);
-                    throw e;
-                }
+        Future<?> future = executors.get(partition).submit(() -> {
+            try {
+                long before = System.currentTimeMillis();
+                log.debug("Delivering message to listener");
+                eventListener.processEvents(events);
+                HaxwellMetrics.reportFilteredOperation(System.currentTimeMillis() - before);
+            } catch (RuntimeException e) {
+                log.error("Error while processing event", e);
+                throw e;
             }
         });
         futures.add(future);
     }
 
-    /**
-     * Flush all buffered HaxwellEvent batches, causing them to be started up for execution.
-     * <p>
-     * Returns all {@code Future}s for all events that have been scheduled since the last time this method was called.
-     */
     public List<Future<?>> flush() {
         for (int partition : eventBuffers.keySet()) {
             List<HaxwellEvent> buffer = (List<HaxwellEvent>) eventBuffers.get(partition);
@@ -108,7 +92,6 @@ public class HaxwellEventExecutor {
             }
         }
         eventBuffers.clear();
-        List<Future<?>> flushedFutures = Lists.newArrayList(futures);
-        return flushedFutures;
+        return Lists.newArrayList(futures);
     }
 }

@@ -104,9 +104,9 @@ public class HaxwellIntegrationTest {
         haxwellSubscription.addSubscription(SUBSCRIPTION_WITH_PAYLOADS_NAME);
         eventListener = new TestEventListener();
         eventListenerWithPayloads = new TestEventListener();
-        haxwellConsumer = new HaxwellConsumer(SUBSCRIPTION_NAME, System.currentTimeMillis(), eventListener, 3, "localhost",
+        haxwellConsumer = new HaxwellConsumer(SUBSCRIPTION_NAME, System.currentTimeMillis(), eventListener, "localhost",
                 zookeeperHelper, clusterConf);
-        haxwellConsumerWithPayloads = new HaxwellConsumer(SUBSCRIPTION_WITH_PAYLOADS_NAME, System.currentTimeMillis(), eventListenerWithPayloads, 3, "localhost", zookeeperHelper, clusterConf);
+        haxwellConsumerWithPayloads = new HaxwellConsumer(SUBSCRIPTION_WITH_PAYLOADS_NAME, System.currentTimeMillis(), eventListenerWithPayloads, "localhost", zookeeperHelper, clusterConf);
         haxwellConsumer.start();
         haxwellConsumerWithPayloads.start();
     }

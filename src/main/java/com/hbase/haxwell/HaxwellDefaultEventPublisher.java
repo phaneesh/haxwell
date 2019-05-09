@@ -40,8 +40,4 @@ public class HaxwellDefaultEventPublisher implements HaxwellEventPublisher {
         payloadTable.put(eventPut);
     }
 
-    protected Table getPayloadTable() {
-        return this.payloadTable;
-    }
-
 }

@@ -68,18 +68,25 @@ public class HaxwellConsumer extends HaxwellRegionServer {
     private HaxwellMetrics haxwellMetrics;
     private String zkNodePath;
     private List<ThreadPoolExecutor> executors;
+    private int threadCount;
+    private int batchSize;
+    private long waitTimeout;
+    private int executorQueueSize;
     private Log log = LogFactory.getLog(getClass());
 
-    public HaxwellConsumer(String subscriptionId, long subscriptionTimestamp, HaxwellEventListener listener, int threadCnt,
+    public HaxwellConsumer(String subscriptionId, long subscriptionTimestamp, HaxwellEventListener listener,
                            String hostName, ZookeeperHelper zk, Configuration hbaseConf) throws IOException, InterruptedException {
-        Preconditions.checkArgument(threadCnt > 0, "Thread count must be > 0");
+        this.threadCount = hbaseConf.getInt("hbase.haxwell.consumers.handler.count", 10);
+        this.batchSize = hbaseConf.getInt("hbase.haxwell.consumers.events.batchsize", 100);
+        this.waitTimeout = hbaseConf.getLong("hbase.haxwell.consumers.execution.timeout.ms", -1);
+        this.executorQueueSize = hbaseConf.getInt("hbase.haxwell.consumers.handler.queue.size", 100);
         this.subscriptionId = HaxwellSubscriptionImpl.toInternalSubscriptionName(subscriptionId);
         this.subscriptionTimestamp = subscriptionTimestamp;
         this.listener = listener;
         this.zk = zk;
         this.hbaseConf = hbaseConf;
         this.haxwellMetrics = new HaxwellMetrics(subscriptionId);
-        this.executors = Lists.newArrayListWithCapacity(threadCnt);
+        this.executors = Lists.newArrayListWithCapacity(threadCount);
 
         InetSocketAddress initialIsa = new InetSocketAddress(hostName, 0);
         if (initialIsa.getAddress() == null) {
@@ -100,10 +107,14 @@ public class HaxwellConsumer extends HaxwellRegionServer {
         User.login(hbaseConf, "hbase.regionserver.keytab.file",
                 "hbase.regionserver.kerberos.principal", hostName);
 
-        for (int i = 0; i < threadCnt; i++) {
+        for (int i = 0; i < threadCount; i++) {
             ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 10, TimeUnit.SECONDS,
-                    new ArrayBlockingQueue<>(100));
-            executor.setRejectedExecutionHandler(new WaitPolicy());
+                    new ArrayBlockingQueue<>(executorQueueSize));
+            if(waitTimeout < 0) {
+                executor.setRejectedExecutionHandler(new WaitPolicy());
+            } else {
+                executor.setRejectedExecutionHandler(new WaitPolicy(waitTimeout, TimeUnit.MILLISECONDS));
+            }
             executors.add(executor);
         }
     }
@@ -153,9 +164,8 @@ public class HaxwellConsumer extends HaxwellRegionServer {
     public AdminProtos.ReplicateWALEntryResponse replicateWALEntry(final RpcController controller,
                                                                    final AdminProtos.ReplicateWALEntryRequest request) throws ServiceException {
         try {
-            // TODO Recording of last processed timestamp won't work if two batches of log entries are sent out of order
             long lastProcessedTimestamp = -1;
-            HaxwellEventExecutor eventExecutor = new HaxwellEventExecutor(listener, executors, 100, haxwellMetrics);
+            HaxwellEventExecutor eventExecutor = new HaxwellEventExecutor(listener, executors, batchSize, haxwellMetrics);
             List<AdminProtos.WALEntry> entries = request.getEntryList();
 
             CellScanner cells = ((PayloadCarryingRpcController) controller).cellScanner();

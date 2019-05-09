@@ -56,7 +56,7 @@ public class HaxwellConsumerTest {
     public void setUp() throws IOException, InterruptedException {
         eventListener = mock(HaxwellEventListener.class);
         zookeeperHelper = mock(ZookeeperHelper.class);
-        haxwellConsumer = new HaxwellConsumer("subscriptionId", SUBSCRIPTION_TIMESTAMP, eventListener, 1, "localhost", zookeeperHelper,
+        haxwellConsumer = new HaxwellConsumer("subscriptionId", SUBSCRIPTION_TIMESTAMP, eventListener, "localhost", zookeeperHelper,
                 HBaseConfiguration.create());
     }
 

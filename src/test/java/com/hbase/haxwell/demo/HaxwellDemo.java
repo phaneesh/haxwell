@@ -43,7 +43,7 @@ public class HaxwellDemo {
         if (!haxwellSubscription.hasSubscription(subscriptionName)) {
             haxwellSubscription.addSubscriptionSilent(subscriptionName);
         }
-        HaxwellConsumer haxwellConsumer = new HaxwellConsumer(subscriptionName, 0, new EventLogger(), 1, "localhost", zk, conf);
+        HaxwellConsumer haxwellConsumer = new HaxwellConsumer(subscriptionName, 0, new EventLogger(), "localhost", zk, conf);
 
         haxwellConsumer.start();
         System.out.println("Started");
