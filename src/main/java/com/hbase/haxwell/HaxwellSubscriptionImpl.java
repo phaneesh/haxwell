@@ -22,7 +22,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.replication.ReplicationAdmin;
-import org.apache.hadoop.hbase.replication.ReplicationPeerConfig;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.zookeeper.KeeperException;
 
@@ -92,7 +91,6 @@ public class HaxwellSubscriptionImpl implements HaxwellSubscription {
             zk.createPath(basePath + "/hbaseid", Bytes.toBytes(uuid.toString()));
             zk.createPath(basePath + "/rs");
             try {
-                ReplicationPeerConfig peerConfig = new ReplicationPeerConfig();
                 replicationAdmin.addPeer(internalName, zkQuorumString + ":" + zkClientPort + ":" + basePath);
             } catch (IllegalArgumentException e) {
                 if (e.getMessage().equals("Cannot add existing peer")) {
