@@ -16,9 +16,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
-        <hdp.stack.version>2.6.1.0-129</hdp.stack.version>
-        <hbase.version>1.1.2.${hdp.stack.version}</hbase.version>
-        <hadoop.version>2.7.3.${hdp.stack.version}</hadoop.version>
+        <hdp.stack.version>3.1.2.0-4</hdp.stack.version>
+        <hbase.version>2.0.2.${hdp.stack.version}</hbase.version>
+        <hadoop.version>3.1.1.${hdp.stack.version}</hadoop.version>
     </properties>
 
 

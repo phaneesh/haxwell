@@ -71,7 +71,6 @@ public class HaxwellIntegrationTest {
 
         hbaseTestUtil = new HBaseTestingUtility(clusterConf);
 
-        hbaseTestUtil.startMiniZKCluster(1);
         hbaseTestUtil.startMiniCluster(1);
 
         HTableDescriptor tableDescriptor = new HTableDescriptor(TableName.valueOf(TABLE_NAME));

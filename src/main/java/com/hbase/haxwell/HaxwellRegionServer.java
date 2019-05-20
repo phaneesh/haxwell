@@ -15,7 +15,6 @@
  */
 package com.hbase.haxwell;
 
-import com.google.protobuf.Message;
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
 import org.apache.hadoop.conf.Configuration;
@@ -24,11 +23,13 @@ import org.apache.hadoop.hbase.CoordinatedStateManager;
 import org.apache.hadoop.hbase.Server;
 import org.apache.hadoop.hbase.ServerName;
 import org.apache.hadoop.hbase.client.ClusterConnection;
+import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.protobuf.generated.AdminProtos;
-import org.apache.hadoop.hbase.protobuf.generated.QuotaProtos;
-import org.apache.hadoop.hbase.protobuf.generated.RPCProtos;
+import org.apache.hadoop.hbase.security.User;
 import org.apache.hadoop.hbase.zookeeper.MetaTableLocator;
-import org.apache.hadoop.hbase.zookeeper.ZooKeeperWatcher;
+import org.apache.hadoop.hbase.zookeeper.ZKWatcher;
+
+import java.io.IOException;
 
 public class HaxwellRegionServer implements AdminProtos.AdminService.BlockingInterface, Server, org.apache.hadoop.hbase.ipc.PriorityFunction {
 
@@ -39,13 +40,23 @@ public class HaxwellRegionServer implements AdminProtos.AdminService.BlockingInt
     }
 
     @Override
-    public ZooKeeperWatcher getZooKeeper() {
+    public ZKWatcher getZooKeeper() {
         throw new UnsupportedOperationException("Not implemented");
     }
 
     @Override
     public ClusterConnection getConnection() {
         throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
+    public Connection createConnection(Configuration configuration) throws IOException {
+        return null;
+    }
+
+    @Override
+    public ClusterConnection getClusterConnection() {
+        return null;
     }
 
     @Override
@@ -86,16 +97,6 @@ public class HaxwellRegionServer implements AdminProtos.AdminService.BlockingInt
     @Override
     public boolean isStopped() {
         return false;
-    }
-
-    @Override
-    public int getPriority(RPCProtos.RequestHeader header, Message param) {
-        return org.apache.hadoop.hbase.HConstants.NORMAL_QOS;
-    }
-
-    @Override
-    public long getDeadline(RPCProtos.RequestHeader header, Message param) {
-        return 0;
     }
 
     @Override
@@ -184,12 +185,12 @@ public class HaxwellRegionServer implements AdminProtos.AdminService.BlockingInt
     }
 
     @Override
-    public QuotaProtos.GetSpaceQuotaSnapshotsResponse getSpaceQuotaSnapshots(RpcController rpcController, QuotaProtos.GetSpaceQuotaSnapshotsRequest getSpaceQuotaSnapshotsRequest) throws ServiceException {
-        throw new UnsupportedOperationException("Not implemented");
+    public int getPriority(org.apache.hadoop.hbase.shaded.protobuf.generated.RPCProtos.RequestHeader requestHeader, org.apache.hbase.thirdparty.com.google.protobuf.Message message, User user) {
+        return 0;
     }
 
     @Override
-    public QuotaProtos.GetSpaceQuotaEnforcementsResponse getSpaceQuotaEnforcements(RpcController rpcController, QuotaProtos.GetSpaceQuotaEnforcementsRequest getSpaceQuotaEnforcementsRequest) throws ServiceException {
-        throw new UnsupportedOperationException("Not implemented");
+    public long getDeadline(org.apache.hadoop.hbase.shaded.protobuf.generated.RPCProtos.RequestHeader requestHeader, org.apache.hbase.thirdparty.com.google.protobuf.Message message) {
+        return 0;
     }
 }

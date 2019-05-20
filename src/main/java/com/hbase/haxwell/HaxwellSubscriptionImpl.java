@@ -21,6 +21,8 @@ import com.hbase.haxwell.util.ZookeeperHelper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.client.Admin;
+import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.replication.ReplicationAdmin;
 import org.apache.hadoop.hbase.replication.ReplicationPeerConfig;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -80,10 +82,10 @@ public class HaxwellSubscriptionImpl implements HaxwellSubscription {
 
     @Override
     public boolean addSubscriptionSilent(String name) throws InterruptedException, KeeperException, IOException {
-        ReplicationAdmin replicationAdmin = new ReplicationAdmin(hbaseConf);
+        Admin replicationAdmin = ConnectionFactory.createConnection(hbaseConf).getAdmin();
         try {
             String internalName = toInternalSubscriptionName(name);
-            if (replicationAdmin.listPeerConfigs().containsKey(internalName)) {
+            if (replicationAdmin.listReplicationPeers().stream().anyMatch(r -> r.getPeerId().equals(internalName))) {
                 return false;
             }
 
@@ -92,8 +94,9 @@ public class HaxwellSubscriptionImpl implements HaxwellSubscription {
             zk.createPath(basePath + "/hbaseid", Bytes.toBytes(uuid.toString()));
             zk.createPath(basePath + "/rs");
             try {
-                ReplicationPeerConfig peerConfig = new ReplicationPeerConfig();
-                replicationAdmin.addPeer(internalName, zkQuorumString + ":" + zkClientPort + ":" + basePath);
+                ReplicationPeerConfig peerConfig = ReplicationPeerConfig.newBuilder()
+                        .setClusterKey(uuid.toString()).build();
+                replicationAdmin.addReplicationPeer(internalName, peerConfig, true);
             } catch (IllegalArgumentException e) {
                 if (e.getMessage().equals("Cannot add existing peer")) {
                     return false;

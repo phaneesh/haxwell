@@ -19,8 +19,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.protobuf.RpcController;
-import com.google.protobuf.ServiceException;
+import com.google.protobuf.BlockingService;
 import com.hbase.haxwell.api.HaxwellEvent;
 import com.hbase.haxwell.api.HaxwellEventListener;
 import com.hbase.haxwell.api.HaxwellSubscription;
@@ -32,12 +31,13 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.ipc.FifoRpcScheduler;
-import org.apache.hadoop.hbase.ipc.PayloadCarryingRpcController;
+import org.apache.hadoop.hbase.ipc.HBaseRpcController;
 import org.apache.hadoop.hbase.ipc.RpcServer;
+import org.apache.hadoop.hbase.ipc.SimpleRpcServer;
 import org.apache.hadoop.hbase.protobuf.generated.AdminProtos;
 import org.apache.hadoop.hbase.security.User;
 import org.apache.hadoop.hbase.zookeeper.ZKUtil;
-import org.apache.hadoop.hbase.zookeeper.ZooKeeperWatcher;
+import org.apache.hadoop.hbase.zookeeper.ZKWatcher;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZooDefs;
@@ -62,8 +62,7 @@ public class HaxwellConsumer extends HaxwellRegionServer {
     private HaxwellEventListener listener;
     private RpcServer rpcServer;
     private ServerName serverName;
-    private ZooKeeperWatcher zkWatcher;
-    private HaxwellMetrics haxwellMetrics;
+    private ZKWatcher zkWatcher;
     private String zkNodePath;
     private List<ThreadPoolExecutor> executors;
     private int threadCount;
@@ -83,7 +82,6 @@ public class HaxwellConsumer extends HaxwellRegionServer {
         this.listener = listener;
         this.zk = zk;
         this.hbaseConf = hbaseConf;
-        this.haxwellMetrics = new HaxwellMetrics(subscriptionId);
         this.executors = Lists.newArrayListWithCapacity(threadCount);
 
         InetSocketAddress initialIsa = new InetSocketAddress(hostName, 0);
@@ -91,11 +89,11 @@ public class HaxwellConsumer extends HaxwellRegionServer {
             throw new IllegalArgumentException("Failed resolve of " + initialIsa);
         }
         String name = "regionserver/" + initialIsa.toString();
-        this.rpcServer = new RpcServer(this, name, getServices(),
+        this.rpcServer = new SimpleRpcServer(this, name, getServices(),
                 initialIsa, hbaseConf,
-                new FifoRpcScheduler(hbaseConf, hbaseConf.getInt("hbase.regionserver.handler.count", 10)));
+                new FifoRpcScheduler(hbaseConf, hbaseConf.getInt("hbase.regionserver.handler.count", 10)), false);
         this.serverName = ServerName.valueOf(hostName, rpcServer.getListenerAddress().getPort(), System.currentTimeMillis());
-        this.zkWatcher = new ZooKeeperWatcher(hbaseConf, this.serverName.toString(), null);
+        this.zkWatcher = new ZKWatcher(hbaseConf, this.serverName.toString(), null);
 
         // login the zookeeper client principal (if using security)
         ZKUtil.loginClient(hbaseConf, "hbase.zookeeper.client.keytab.file",
@@ -129,9 +127,9 @@ public class HaxwellConsumer extends HaxwellRegionServer {
 
     private List<RpcServer.BlockingServiceAndInterface> getServices() {
         List<RpcServer.BlockingServiceAndInterface> bssi = new ArrayList<>(1);
-        bssi.add(new RpcServer.BlockingServiceAndInterface(
-                AdminProtos.AdminService.newReflectiveBlockingService(this),
-                AdminProtos.AdminService.BlockingInterface.class));
+        BlockingService blockingService = AdminProtos.AdminService.newReflectiveBlockingService(this);
+        new SimpleRpcServer.BlockingServiceAndInterface((org.apache.hbase.thirdparty.com.google.protobuf.BlockingService) blockingService,
+                AdminProtos.AdminService.BlockingInterface.class);
         return bssi;
     }
 
@@ -149,7 +147,6 @@ public class HaxwellConsumer extends HaxwellRegionServer {
                 }
             }
         }
-        haxwellMetrics.shutdown();
         for (ThreadPoolExecutor executor : executors) {
             executor.shutdown();
         }
@@ -160,14 +157,14 @@ public class HaxwellConsumer extends HaxwellRegionServer {
     }
 
     @Override
-    public AdminProtos.ReplicateWALEntryResponse replicateWALEntry(final RpcController controller,
-                                                                   final AdminProtos.ReplicateWALEntryRequest request) throws ServiceException {
+    public AdminProtos.ReplicateWALEntryResponse replicateWALEntry(final com.google.protobuf.RpcController controller,
+                                                                   final AdminProtos.ReplicateWALEntryRequest request) throws com.google.protobuf.ServiceException {
         try {
             long lastProcessedTimestamp = -1;
-            HaxwellEventExecutor eventExecutor = new HaxwellEventExecutor(listener, executors, batchSize, haxwellMetrics);
+            HaxwellEventExecutor eventExecutor = new HaxwellEventExecutor(listener, executors, batchSize);
             List<AdminProtos.WALEntry> entries = request.getEntryList();
 
-            CellScanner cells = ((PayloadCarryingRpcController) controller).cellScanner();
+            CellScanner cells = ((HBaseRpcController) controller).cellScanner();
             for (final AdminProtos.WALEntry entry : entries) {
                 TableName tableName = (entry.getKey().getWriteTime() < subscriptionTimestamp) ? null :
                         TableName.valueOf(entry.getKey().getTableName().toByteArray());
@@ -197,12 +194,9 @@ public class HaxwellConsumer extends HaxwellRegionServer {
             }
             List<Future<?>> futures = eventExecutor.flush();
             waitOnHaxwellSubscriptionCompletion(futures);
-            if (lastProcessedTimestamp > 0) {
-                haxwellMetrics.reportEventTimestamp(lastProcessedTimestamp);
-            }
             return AdminProtos.ReplicateWALEntryResponse.newBuilder().build();
         } catch (IOException ie) {
-            throw new ServiceException(ie);
+            throw new com.google.protobuf.ServiceException(ie);
         }
     }
 
@@ -238,7 +232,7 @@ public class HaxwellConsumer extends HaxwellRegionServer {
     }
 
     @Override
-    public ZooKeeperWatcher getZooKeeper() {
+    public ZKWatcher getZooKeeper() {
         return zkWatcher;
     }
 }

@@ -35,19 +35,17 @@ public class HaxwellEventExecutor {
     private HaxwellEventListener eventListener;
     private int numThreads;
     private int batchSize;
-    private HaxwellMetrics HaxwellMetrics;
     private List<ThreadPoolExecutor> executors;
     private Multimap<Integer, HaxwellEvent> eventBuffers;
     private List<Future<?>> futures;
     private HashFunction hashFunction = Hashing.murmur3_32();
     private boolean stopped = false;
 
-    public HaxwellEventExecutor(HaxwellEventListener eventListener, List<ThreadPoolExecutor> executors, int batchSize, HaxwellMetrics HaxwellMetrics) {
+    public HaxwellEventExecutor(HaxwellEventListener eventListener, List<ThreadPoolExecutor> executors, int batchSize) {
         this.eventListener = eventListener;
         this.executors = executors;
         this.numThreads = executors.size();
         this.batchSize = batchSize;
-        this.HaxwellMetrics = HaxwellMetrics;
         eventBuffers = ArrayListMultimap.create(numThreads, batchSize);
         futures = Lists.newArrayList();
     }
@@ -75,7 +73,6 @@ public class HaxwellEventExecutor {
                 long before = System.currentTimeMillis();
                 log.debug("Delivering message to listener");
                 eventListener.processEvents(events);
-                HaxwellMetrics.reportFilteredOperation(System.currentTimeMillis() - before);
             } catch (RuntimeException e) {
                 log.error("Error while processing event", e);
                 throw e;

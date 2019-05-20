@@ -39,12 +39,10 @@ import static org.mockito.Mockito.when;
 
 public class HaxwellExecutorTest {
 
-    private HaxwellMetrics haxwellMetrics;
     private List<ThreadPoolExecutor> executors;
 
     @Before
     public void setUp() {
-        haxwellMetrics = mock(HaxwellMetrics.class);
         executors = Lists.newArrayListWithCapacity(10);
         for (int i = 0; i < 10; i++) {
             ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 10, TimeUnit.SECONDS,
@@ -74,7 +72,7 @@ public class HaxwellExecutorTest {
     @Test
     public void testScheduleHaxwellSubscription() throws InterruptedException {
         RecordingEventListener eventListener = new RecordingEventListener();
-        HaxwellEventExecutor executor = new HaxwellEventExecutor(eventListener, getExecutors(2), 1, haxwellMetrics);
+        HaxwellEventExecutor executor = new HaxwellEventExecutor(eventListener, getExecutors(2), 1);
         final int NUM_EVENTS = 10;
         for (int i = 0; i < NUM_EVENTS; i++) {
             executor.scheduleHaxwellEvent(createHaxwellSubscription(i));
@@ -93,7 +91,7 @@ public class HaxwellExecutorTest {
     @Test
     public void testScheduleHaxwellSubscription_NotFullBatch() throws InterruptedException {
         RecordingEventListener eventListener = new RecordingEventListener();
-        HaxwellEventExecutor executor = new HaxwellEventExecutor(eventListener, getExecutors(2), 100, haxwellMetrics);
+        HaxwellEventExecutor executor = new HaxwellEventExecutor(eventListener, getExecutors(2), 100);
         final int NUM_EVENTS = 10;
         for (int i = 0; i < NUM_EVENTS; i++) {
             executor.scheduleHaxwellEvent(createHaxwellSubscription(i));
@@ -119,7 +117,7 @@ public class HaxwellExecutorTest {
     @Test
     public void testScheduleHaxwellSubscription_EventOverflow() throws InterruptedException {
         DelayingEventListener eventListener = new DelayingEventListener();
-        HaxwellEventExecutor executor = new HaxwellEventExecutor(eventListener, getExecutors(1), 1, haxwellMetrics);
+        HaxwellEventExecutor executor = new HaxwellEventExecutor(eventListener, getExecutors(1), 1);
         final int NUM_EVENTS = 50;
         for (int i = 0; i < NUM_EVENTS; i++) {
             executor.scheduleHaxwellEvent(createHaxwellSubscription(i));
