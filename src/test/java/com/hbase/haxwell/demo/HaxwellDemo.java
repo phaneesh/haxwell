@@ -17,15 +17,17 @@ package com.hbase.haxwell.demo;
 
 import com.hbase.haxwell.HaxwellConsumer;
 import com.hbase.haxwell.HaxwellSubscriptionImpl;
-import com.hbase.haxwell.api.HaxwellEvent;
 import com.hbase.haxwell.api.HaxwellEventListener;
 import com.hbase.haxwell.api.HaxwellSubscription;
+import com.hbase.haxwell.api.core.HaxwellRow;
 import com.hbase.haxwell.util.ZookeeperHelper;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.HColumnDescriptor;
+import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
-import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.IOException;
 import java.util.List;
@@ -68,15 +70,10 @@ public class HaxwellDemo {
 
     private static class EventLogger implements HaxwellEventListener {
         @Override
-        public void processEvents(List<HaxwellEvent> haxwellEvents) {
-            for (HaxwellEvent haxwellEvent : haxwellEvents) {
+        public void processEvents(List<HaxwellRow> haxwellRows) {
+            for (HaxwellRow haxwellRow : haxwellRows) {
                 System.out.println("Received event:");
-                System.out.println("  table = " + Bytes.toString(haxwellEvent.getTable()));
-                System.out.println("  row = " + Bytes.toString(haxwellEvent.getRow()));
-                System.out.println("  key values = ");
-                for (Cell kv : haxwellEvent.getKeyValues()) {
-                    System.out.println("    " + kv.toString());
-                }
+                System.out.println(haxwellRow.toString());
             }
         }
     }

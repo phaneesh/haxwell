@@ -21,16 +21,24 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.protobuf.RpcController;
 import com.google.protobuf.ServiceException;
-import com.hbase.haxwell.api.HaxwellEvent;
 import com.hbase.haxwell.api.HaxwellEventListener;
 import com.hbase.haxwell.api.HaxwellSubscription;
 import com.hbase.haxwell.api.WaitPolicy;
+import com.hbase.haxwell.api.core.HaxwellRow;
+import com.hbase.haxwell.api.core.HaxwellRow.OperationType;
 import com.hbase.haxwell.util.CloseableHelper;
 import com.hbase.haxwell.util.ZookeeperHelper;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.Cell;
+import org.apache.hadoop.hbase.CellScanner;
+import org.apache.hadoop.hbase.CellUtil;
+import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.KeyValue.Type;
+import org.apache.hadoop.hbase.KeyValueUtil;
+import org.apache.hadoop.hbase.ServerName;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.ipc.FifoRpcScheduler;
 import org.apache.hadoop.hbase.ipc.PayloadCarryingRpcController;
 import org.apache.hadoop.hbase.ipc.RpcServer;
@@ -173,6 +181,7 @@ public class HaxwellConsumer extends HaxwellRegionServer {
                         TableName.valueOf(entry.getKey().getTableName().toByteArray());
                 Multimap<ByteBuffer, Cell> keyValuesPerRowKey = ArrayListMultimap.create();
                 int count = entry.getAssociatedCellCount();
+                OperationType operationType = OperationType.UNKNOWN;
                 for (int i = 0; i < count; i++) {
                     if (!cells.advance()) {
                         throw new ArrayIndexOutOfBoundsException("Expected=" + count + ", index=" + i);
@@ -182,15 +191,23 @@ public class HaxwellConsumer extends HaxwellRegionServer {
                         continue;
                     }
                     Cell cell = cells.current();
-                    ByteBuffer rowKey = ByteBuffer.wrap(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
-                    KeyValue kv = KeyValueUtil.ensureKeyValue(cell);
-                    keyValuesPerRowKey.put(rowKey, kv);
+                    if(cell.getTypeByte() == Type.Put.getCode()) {
+                        operationType = OperationType.PUT;
+                    }
+                    if(cell.getTypeByte() == Type.Delete.getCode()) {
+                        operationType = OperationType.DELETE;
+                    }
+                    if(operationType != null) {
+                        ByteBuffer rowKey = ByteBuffer.wrap(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
+                        KeyValue kv = KeyValueUtil.ensureKeyValue(cell);
+                        keyValuesPerRowKey.put(rowKey, kv);
+                    }
                 }
-
                 for (final ByteBuffer rowKeyBuffer : keyValuesPerRowKey.keySet()) {
                     final List<Cell> keyValues = (List<Cell>) keyValuesPerRowKey.get(rowKeyBuffer);
-                    final HaxwellEvent haxwellEvent = new HaxwellEvent(tableName.toBytes(), CellUtil.cloneRow(keyValues.get(0)), keyValues);
-                    eventExecutor.scheduleHaxwellEvent(haxwellEvent);
+                    final HaxwellRow row = HaxwellRow.create(tableName.getName(), CellUtil.cloneRow(keyValues.get(0)),
+                        keyValues, operationType, entry.getKey().getWriteTime());
+                    eventExecutor.scheduleHaxwellEvent(row);
                     lastProcessedTimestamp = Math.max(lastProcessedTimestamp, entry.getKey().getWriteTime());
                 }
 

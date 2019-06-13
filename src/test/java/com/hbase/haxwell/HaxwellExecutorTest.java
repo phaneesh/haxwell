@@ -16,10 +16,9 @@
 package com.hbase.haxwell;
 
 import com.google.common.collect.Lists;
-import com.hbase.haxwell.api.HaxwellEvent;
 import com.hbase.haxwell.api.HaxwellEventListener;
 import com.hbase.haxwell.api.WaitPolicy;
-import org.apache.hadoop.hbase.util.Bytes;
+import com.hbase.haxwell.api.core.HaxwellRow;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -61,9 +60,9 @@ public class HaxwellExecutorTest {
         }
     }
 
-    private HaxwellEvent createHaxwellSubscription(int row) {
-        HaxwellEvent haxwellEvent = mock(HaxwellEvent.class);
-        when(haxwellEvent.getRow()).thenReturn(Bytes.toBytes(String.valueOf(row)));
+    private HaxwellRow createHaxwellSubscription(int row) {
+        HaxwellRow haxwellEvent = mock(HaxwellRow.class);
+        when(haxwellEvent.getId()).thenReturn(String.valueOf(row));
         return haxwellEvent;
     }
 
@@ -145,10 +144,10 @@ public class HaxwellExecutorTest {
 
     static class RecordingEventListener implements HaxwellEventListener {
 
-        List<HaxwellEvent> receivedEvents = Lists.newArrayList();
+        List<HaxwellRow> receivedEvents = Lists.newArrayList();
 
         @Override
-        public synchronized void processEvents(List<HaxwellEvent> events) {
+        public synchronized void processEvents(List<HaxwellRow> events) {
             receivedEvents.addAll(events);
         }
 
@@ -156,11 +155,11 @@ public class HaxwellExecutorTest {
 
     static class DelayingEventListener implements HaxwellEventListener {
 
-        List<HaxwellEvent> receivedEvents = Collections.synchronizedList(Lists.newArrayList());
+        List<HaxwellRow> receivedEvents = Collections.synchronizedList(Lists.newArrayList());
 
         @Override
-        public void processEvents(List<HaxwellEvent> events) {
-            for (HaxwellEvent event : events) {
+        public void processEvents(List<HaxwellRow> events) {
+            for (HaxwellRow event : events) {
                 try {
                     Thread.sleep(250);
                 } catch (InterruptedException e) {

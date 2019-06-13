@@ -17,20 +17,29 @@ package com.hbase.haxwell;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.hbase.haxwell.api.HaxwellEvent;
 import com.hbase.haxwell.api.HaxwellEventListener;
 import com.hbase.haxwell.api.HaxwellSubscription;
 import com.hbase.haxwell.api.ZkConnectException;
+import com.hbase.haxwell.api.core.HaxwellRow;
 import com.hbase.haxwell.util.ZookeeperHelper;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.*;
+import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.HBaseTestingUtility;
+import org.apache.hadoop.hbase.HColumnDescriptor;
+import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.zookeeper.KeeperException;
-import org.junit.*;
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -134,8 +143,8 @@ public class HaxwellIntegrationTest {
         assertEquals(3, eventListenerWithPayloads.getEvents().size());
 
         Set<String> rowKeys = Sets.newHashSet();
-        for (HaxwellEvent haxwellEvent : eventListener.getEvents()) {
-            rowKeys.add(Bytes.toString(haxwellEvent.getRow()));
+        for (HaxwellRow haxwellEvent : eventListener.getEvents()) {
+            rowKeys.add(haxwellEvent.getId());
         }
         assertEquals(Sets.newHashSet("row 0", "row 1", "row 2"), rowKeys);
     }
@@ -160,21 +169,20 @@ public class HaxwellIntegrationTest {
 
         assertEquals(2, eventListenerWithPayloads.getEvents().size());
 
-        List<HaxwellEvent> events = eventListener.getEvents();
+        List<HaxwellRow> events = eventListener.getEvents();
 
         assertEquals(2, events.size());
 
-        HaxwellEvent eventA, eventB;
-        if ("rowA".equals(Bytes.toString(events.get(0).getRow()))) {
+        HaxwellRow eventA, eventB;
+        if ("rowA".equals(events.get(0).getId())) {
             eventA = events.get(0);
             eventB = events.get(1);
         } else {
             eventA = events.get(1);
             eventB = events.get(0);
         }
-
-        assertEquals("rowA", Bytes.toString(eventA.getRow()));
-        assertEquals("rowB", Bytes.toString(eventB.getRow()));
+        assertEquals("rowA", eventA.getId());
+        assertEquals("rowB", eventB.getId());
     }
 
     @Test
@@ -187,14 +195,14 @@ public class HaxwellIntegrationTest {
         waitForEvents(eventListener, 1);
         waitForEvents(eventListenerWithPayloads, 1);
 
-        HaxwellEvent eventWithoutPayload = eventListener.getEvents().get(0);
-        HaxwellEvent eventWithPayload = eventListenerWithPayloads.getEvents().get(0);
+        HaxwellRow eventWithoutPayload = eventListener.getEvents().get(0);
+        HaxwellRow eventWithPayload = eventListenerWithPayloads.getEvents().get(0);
 
-        assertEquals("rowkey", Bytes.toString(eventWithoutPayload.getRow()));
-        assertEquals("rowkey", Bytes.toString(eventWithPayload.getRow()));
+        assertEquals("rowkey", eventWithoutPayload.getId());
+        assertEquals("rowkey", eventWithPayload.getId());
 
-        assertEquals(2, eventWithoutPayload.getKeyValues().size());
-        assertEquals(2, eventWithPayload.getKeyValues().size());
+        assertEquals(2, eventWithoutPayload.getColumns().size());
+        assertEquals(2, eventWithPayload.getColumns().size());
     }
 
     private void waitForEvents(TestEventListener listener, int expectedNumEvents) {
@@ -215,14 +223,14 @@ public class HaxwellIntegrationTest {
 
     static class TestEventListener implements HaxwellEventListener {
 
-        private List<HaxwellEvent> haxwellEvents = Collections.synchronizedList(Lists.newArrayList());
+        private List<HaxwellRow> haxwellEvents = Collections.synchronizedList(Lists.newArrayList());
 
         @Override
-        public synchronized void processEvents(List<HaxwellEvent> events) {
+        public synchronized void processEvents(List<HaxwellRow> events) {
             haxwellEvents.addAll(events);
         }
 
-        public List<HaxwellEvent> getEvents() {
+        public List<HaxwellRow> getEvents() {
             return Collections.unmodifiableList(haxwellEvents);
         }
 

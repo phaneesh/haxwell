@@ -15,9 +15,11 @@
  */
 package com.hbase.haxwell.api;
 
+import com.hbase.haxwell.api.core.HaxwellRow;
+
 import java.util.List;
 
 public interface HaxwellEventListener {
 
-    void processEvents(List<HaxwellEvent> events);
+    void processEvents(List<HaxwellRow> events);
 }
