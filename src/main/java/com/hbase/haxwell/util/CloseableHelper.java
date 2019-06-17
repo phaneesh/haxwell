@@ -24,44 +24,44 @@ import java.lang.reflect.Method;
 
 public class CloseableHelper {
 
-    private static final Log log = LogFactory.getLog(CloseableHelper.class);
+  private static final Log log = LogFactory.getLog(CloseableHelper.class);
 
-    public static void close(Closeable closeable) {
-        if (closeable != null) {
-            try {
-                closeable.close();
-            } catch (Throwable t) {
-                log.error("Error closing object of type " + closeable.getClass().getName(), t);
-            }
-        }
+  public static void close(Closeable closeable) {
+    if (closeable != null) {
+      try {
+        closeable.close();
+      } catch (Throwable t) {
+        log.error("Error closing object of type " + closeable.getClass().getName(), t);
+      }
     }
+  }
 
-    public static void close(Object object) {
-        if (object != null) {
-            try {
-                Method closeMethod = null;
-                Method[] methods = object.getClass().getMethods();
-                for (Method method : methods) {
-                    if (method.getParameterTypes().length == 0) {
-                        if (method.getName().equals("close")) {
-                            closeMethod = method;
-                            break;
-                        } else if (method.getName().equals("shutdown")) {
-                            closeMethod = method;
-                        } else if (method.getName().equals("stop")) {
-                            closeMethod = method;
-                        }
-                    }
-                }
-
-                if (closeMethod != null) {
-                    closeMethod.invoke(object);
-                } else {
-                    log.error("Do not know how to close object of type " + object.getClass().getName());
-                }
-            } catch (Throwable t) {
-                log.error("Error closing object of type " + object.getClass().getName(), t);
+  public static void close(Object object) {
+    if (object != null) {
+      try {
+        Method closeMethod = null;
+        Method[] methods = object.getClass().getMethods();
+        for (Method method : methods) {
+          if (method.getParameterTypes().length == 0) {
+            if (method.getName().equals("close")) {
+              closeMethod = method;
+              break;
+            } else if (method.getName().equals("shutdown")) {
+              closeMethod = method;
+            } else if (method.getName().equals("stop")) {
+              closeMethod = method;
             }
+          }
         }
+
+        if (closeMethod != null) {
+          closeMethod.invoke(object);
+        } else {
+          log.error("Do not know how to close object of type " + object.getClass().getName());
+        }
+      } catch (Throwable t) {
+        log.error("Error closing object of type " + object.getClass().getName(), t);
+      }
     }
+  }
 }

@@ -19,5 +19,5 @@ import java.io.IOException;
 
 public interface HaxwellEventPublisher {
 
-    void publishEvent(byte[] row, byte[] payload) throws IOException;
+  void publishEvent(byte[] row, byte[] payload) throws IOException;
 }

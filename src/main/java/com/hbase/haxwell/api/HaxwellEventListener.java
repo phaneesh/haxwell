@@ -21,5 +21,5 @@ import java.util.List;
 
 public interface HaxwellEventListener {
 
-    void processEvents(List<HaxwellRow> events);
+  void processEvents(List<HaxwellRow> events);
 }

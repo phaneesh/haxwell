@@ -71,20 +71,6 @@ public class HaxwellConsumerTest {
     haxwellConsumer.stop();
   }
 
-  private WAL.Entry createHlogEntry(byte[] tableName, Cell... keyValues) {
-    return createHlogEntry(tableName, SUBSCRIPTION_TIMESTAMP + 1, keyValues);
-  }
-
-  private WAL.Entry createHlogEntry(byte[] tableName, long writeTime, Cell... keyValues) {
-    WAL.Entry entry = mock(WAL.Entry.class, Mockito.RETURNS_DEEP_STUBS);
-    when(entry.getEdit().getCells()).thenReturn(Lists.newArrayList(keyValues));
-    when(entry.getKey().getTablename()).thenReturn(TableName.valueOf(tableName));
-    when(entry.getKey().getWriteTime()).thenReturn(writeTime);
-    when(entry.getKey().getEncodedRegionName()).thenReturn(encodedRegionName);
-    when(entry.getKey().getClusterIds()).thenReturn(clusterUUIDs);
-    return entry;
-  }
-
   @Test
   public void testReplicateLogEntries() throws IOException {
 
@@ -97,6 +83,24 @@ public class HaxwellConsumerTest {
     HaxwellRow haxwellRow = HaxwellRow.create(TABLE_NAME, rowKey, hlogEntry.getEdit().getCells(),
         OperationType.PUT, hlogEntry.getKey().getWriteTime());
     verify(eventListener).processEvents(Lists.newArrayList(haxwellRow));
+  }
+
+  private WAL.Entry createHlogEntry(byte[] tableName, Cell... keyValues) {
+    return createHlogEntry(tableName, SUBSCRIPTION_TIMESTAMP + 1, keyValues);
+  }
+
+  private void replicateWALEntry(WAL.Entry[] entries) throws IOException {
+    ReplicationProtbufUtil.replicateWALEntry(haxwellConsumer, entries, null, null, null);
+  }
+
+  private WAL.Entry createHlogEntry(byte[] tableName, long writeTime, Cell... keyValues) {
+    WAL.Entry entry = mock(WAL.Entry.class, Mockito.RETURNS_DEEP_STUBS);
+    when(entry.getEdit().getCells()).thenReturn(Lists.newArrayList(keyValues));
+    when(entry.getKey().getTablename()).thenReturn(TableName.valueOf(tableName));
+    when(entry.getKey().getWriteTime()).thenReturn(writeTime);
+    when(entry.getKey().getEncodedRegionName()).thenReturn(encodedRegionName);
+    when(entry.getKey().getClusterIds()).thenReturn(clusterUUIDs);
+    return entry;
   }
 
   @Test
@@ -156,9 +160,5 @@ public class HaxwellConsumerTest {
     HaxwellRow expectedEventA = HaxwellRow.create(TABLE_NAME, rowKeyA, entry.getEdit().getCells(),
         OperationType.PUT, entry.getKey().getWriteTime());
     verify(eventListener).processEvents(Lists.newArrayList(expectedEventA));
-  }
-
-  private void replicateWALEntry(WAL.Entry[] entries) throws IOException {
-    ReplicationProtbufUtil.replicateWALEntry(haxwellConsumer, entries, null, null, null);
   }
 }

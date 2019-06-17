@@ -21,17 +21,17 @@ import java.io.IOException;
 
 public interface HaxwellSubscription {
 
-    String ZK_ROOT_NODE_CONF_KEY = "haxwell.zookeeper.znode.parent";
+  String ZK_ROOT_NODE_CONF_KEY = "haxwell.zookeeper.znode.parent";
 
-    String DEFAULT_ZK_ROOT_NODE = "/haxwell/hbase-slave";
+  String DEFAULT_ZK_ROOT_NODE = "/haxwell/hbase-slave";
 
-    void addSubscription(String name) throws InterruptedException, KeeperException, IOException;
+  void addSubscription(String name) throws InterruptedException, KeeperException, IOException;
 
-    boolean addSubscriptionSilent(String name) throws InterruptedException, KeeperException, IOException;
+  boolean addSubscriptionSilent(String name) throws InterruptedException, KeeperException, IOException;
 
-    void removeSubscription(String name) throws IOException;
+  void removeSubscription(String name) throws IOException;
 
-    boolean removeSubscriptionSilent(String name) throws IOException;
+  boolean removeSubscriptionSilent(String name) throws IOException;
 
-    boolean hasSubscription(String name) throws IOException;
+  boolean hasSubscription(String name) throws IOException;
 }

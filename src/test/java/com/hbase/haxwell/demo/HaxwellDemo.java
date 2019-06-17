@@ -34,47 +34,47 @@ import java.util.List;
 
 public class HaxwellDemo {
 
-    public static void main(String[] args) throws Exception {
-        Configuration conf = HBaseConfiguration.create();
-        createSchema(conf);
-        ZookeeperHelper zk = new ZookeeperHelper("localhost:2181", 20000);
-        HaxwellSubscription haxwellSubscription = new HaxwellSubscriptionImpl(zk, conf);
+  public static void main(String[] args) throws Exception {
+    Configuration conf = HBaseConfiguration.create();
+    createSchema(conf);
+    ZookeeperHelper zk = new ZookeeperHelper("localhost:2181", 20000);
+    HaxwellSubscription haxwellSubscription = new HaxwellSubscriptionImpl(zk, conf);
 
-        final String subscriptionName = "haxwell_demo";
+    final String subscriptionName = "haxwell_demo";
 
-        if (!haxwellSubscription.hasSubscription(subscriptionName)) {
-            haxwellSubscription.addSubscriptionSilent(subscriptionName);
-        }
-        HaxwellConsumer haxwellConsumer = new HaxwellConsumer(subscriptionName, 0, new EventLogger(), "localhost", zk, conf);
-
-        haxwellConsumer.start();
-        System.out.println("Started");
-
-        while (true) {
-            Thread.sleep(Long.MAX_VALUE);
-        }
+    if (!haxwellSubscription.hasSubscription(subscriptionName)) {
+      haxwellSubscription.addSubscriptionSilent(subscriptionName);
     }
+    HaxwellConsumer haxwellConsumer = new HaxwellConsumer(subscriptionName, 0, new EventLogger(), "localhost", zk, conf);
 
-    public static void createSchema(Configuration hbaseConf) throws IOException {
-        Admin admin = ConnectionFactory.createConnection(hbaseConf).getAdmin();
-        if (!admin.tableExists(TableName.valueOf("haxwell-demo"))) {
-            HTableDescriptor tableDescriptor = new HTableDescriptor(TableName.valueOf("haxwell-demo"));
-            HColumnDescriptor infoCf = new HColumnDescriptor("info");
-            infoCf.setScope(1);
-            tableDescriptor.addFamily(infoCf);
-            admin.createTable(tableDescriptor);
-        }
-        admin.close();
+    haxwellConsumer.start();
+    System.out.println("Started");
+
+    while (true) {
+      Thread.sleep(Long.MAX_VALUE);
     }
+  }
 
-
-    private static class EventLogger implements HaxwellEventListener {
-        @Override
-        public void processEvents(List<HaxwellRow> haxwellRows) {
-            for (HaxwellRow haxwellRow : haxwellRows) {
-                System.out.println("Received event:");
-                System.out.println(haxwellRow.toString());
-            }
-        }
+  public static void createSchema(Configuration hbaseConf) throws IOException {
+    Admin admin = ConnectionFactory.createConnection(hbaseConf).getAdmin();
+    if (!admin.tableExists(TableName.valueOf("haxwell-demo"))) {
+      HTableDescriptor tableDescriptor = new HTableDescriptor(TableName.valueOf("haxwell-demo"));
+      HColumnDescriptor infoCf = new HColumnDescriptor("info");
+      infoCf.setScope(1);
+      tableDescriptor.addFamily(infoCf);
+      admin.createTable(tableDescriptor);
     }
+    admin.close();
+  }
+
+
+  private static class EventLogger implements HaxwellEventListener {
+    @Override
+    public void processEvents(List<HaxwellRow> haxwellRows) {
+      for (HaxwellRow haxwellRow : haxwellRows) {
+        System.out.println("Received event:");
+        System.out.println(haxwellRow.toString());
+      }
+    }
+  }
 }

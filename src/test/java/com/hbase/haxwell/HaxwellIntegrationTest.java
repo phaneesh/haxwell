@@ -50,194 +50,194 @@ import static junit.framework.TestCase.assertEquals;
 
 public class HaxwellIntegrationTest {
 
-    private static final byte[] TABLE_NAME = Bytes.toBytes("test_table");
-    private static final byte[] DATA_COL_FAMILY = Bytes.toBytes("datacf");
-    private static final byte[] PAYLOAD_COL_FAMILY = Bytes.toBytes("payloadcf");
-    private static final byte[] PAYLOAD_COL_QUALIFIER = Bytes.toBytes("payload_qualifier");
-    private static final String SUBSCRIPTION_NAME = "test_subscription";
-    private static final String SUBSCRIPTION_WITH_PAYLOADS_NAME = "test_subscription_with_payloads";
-    private static final int WAIT_TIMEOUT = 10000;
+  private static final byte[] TABLE_NAME = Bytes.toBytes("test_table");
+  private static final byte[] DATA_COL_FAMILY = Bytes.toBytes("datacf");
+  private static final byte[] PAYLOAD_COL_FAMILY = Bytes.toBytes("payloadcf");
+  private static final byte[] PAYLOAD_COL_QUALIFIER = Bytes.toBytes("payload_qualifier");
+  private static final String SUBSCRIPTION_NAME = "test_subscription";
+  private static final String SUBSCRIPTION_WITH_PAYLOADS_NAME = "test_subscription_with_payloads";
+  private static final int WAIT_TIMEOUT = 10000;
 
-    private static Configuration clusterConf;
-    private static HBaseTestingUtility hbaseTestUtil;
-    private static Table htable;
-    private static Connection connection;
+  private static Configuration clusterConf;
+  private static HBaseTestingUtility hbaseTestUtil;
+  private static Table htable;
+  private static Connection connection;
 
-    private ZookeeperHelper zookeeperHelper;
-    private HaxwellSubscription haxwellSubscription;
-    private HaxwellConsumer haxwellConsumer;
-    private HaxwellConsumer haxwellConsumerWithPayloads;
-    private TestEventListener eventListener;
-    private TestEventListener eventListenerWithPayloads;
+  private ZookeeperHelper zookeeperHelper;
+  private HaxwellSubscription haxwellSubscription;
+  private HaxwellConsumer haxwellConsumer;
+  private HaxwellConsumer haxwellConsumerWithPayloads;
+  private TestEventListener eventListener;
+  private TestEventListener eventListenerWithPayloads;
 
-    @BeforeClass
-    public static void setUpBeforeClass() throws Exception {
-        clusterConf = HBaseConfiguration.create();
-        clusterConf.setLong("replication.source.sleepforretries", 50);
-        clusterConf.set("replication.replicationsource.implementation", HaxwellReplicationSource.class.getName());
-        clusterConf.setInt("hbase.master.info.port", -1);
-        clusterConf.setInt("hbase.regionserver.info.port", -1);
+  @BeforeClass
+  public static void setUpBeforeClass() throws Exception {
+    clusterConf = HBaseConfiguration.create();
+    clusterConf.setLong("replication.source.sleepforretries", 50);
+    clusterConf.set("replication.replicationsource.implementation", HaxwellReplicationSource.class.getName());
+    clusterConf.setInt("hbase.master.info.port", -1);
+    clusterConf.setInt("hbase.regionserver.info.port", -1);
 
-        hbaseTestUtil = new HBaseTestingUtility(clusterConf);
+    hbaseTestUtil = new HBaseTestingUtility(clusterConf);
 
-        hbaseTestUtil.startMiniZKCluster(1);
-        hbaseTestUtil.startMiniCluster(1);
+    hbaseTestUtil.startMiniZKCluster(1);
+    hbaseTestUtil.startMiniCluster(1);
 
-        HTableDescriptor tableDescriptor = new HTableDescriptor(TableName.valueOf(TABLE_NAME));
-        HColumnDescriptor dataColfamDescriptor = new HColumnDescriptor(DATA_COL_FAMILY);
-        dataColfamDescriptor.setScope(HConstants.REPLICATION_SCOPE_GLOBAL);
-        HColumnDescriptor payloadColfamDescriptor = new HColumnDescriptor(PAYLOAD_COL_FAMILY);
-        payloadColfamDescriptor.setScope(HConstants.REPLICATION_SCOPE_GLOBAL);
-        tableDescriptor.addFamily(dataColfamDescriptor);
-        tableDescriptor.addFamily(payloadColfamDescriptor);
+    HTableDescriptor tableDescriptor = new HTableDescriptor(TableName.valueOf(TABLE_NAME));
+    HColumnDescriptor dataColfamDescriptor = new HColumnDescriptor(DATA_COL_FAMILY);
+    dataColfamDescriptor.setScope(HConstants.REPLICATION_SCOPE_GLOBAL);
+    HColumnDescriptor payloadColfamDescriptor = new HColumnDescriptor(PAYLOAD_COL_FAMILY);
+    payloadColfamDescriptor.setScope(HConstants.REPLICATION_SCOPE_GLOBAL);
+    tableDescriptor.addFamily(dataColfamDescriptor);
+    tableDescriptor.addFamily(payloadColfamDescriptor);
 
-        connection = ConnectionFactory.createConnection(clusterConf);
-        connection.getAdmin().createTable(tableDescriptor);
-        htable = connection.getTable(TableName.valueOf(TABLE_NAME));
+    connection = ConnectionFactory.createConnection(clusterConf);
+    connection.getAdmin().createTable(tableDescriptor);
+    htable = connection.getTable(TableName.valueOf(TABLE_NAME));
+  }
+
+  @AfterClass
+  public static void tearDownAfterClass() throws Exception {
+    if (connection != null) {
+      connection.close();
+    }
+    hbaseTestUtil.shutdownMiniCluster();
+  }
+
+  @Before
+  public void setUp() throws ZkConnectException, InterruptedException, KeeperException, IOException {
+    zookeeperHelper = new ZookeeperHelper("localhost:" + hbaseTestUtil.getZkCluster().getClientPort(),
+        30000);
+    haxwellSubscription = new HaxwellSubscriptionImpl(zookeeperHelper, clusterConf);
+    haxwellSubscription.addSubscription(SUBSCRIPTION_NAME);
+    haxwellSubscription.addSubscription(SUBSCRIPTION_WITH_PAYLOADS_NAME);
+    eventListener = new TestEventListener();
+    eventListenerWithPayloads = new TestEventListener();
+    haxwellConsumer = new HaxwellConsumer(SUBSCRIPTION_NAME, System.currentTimeMillis(), eventListener, "localhost",
+        zookeeperHelper, clusterConf);
+    haxwellConsumerWithPayloads = new HaxwellConsumer(SUBSCRIPTION_WITH_PAYLOADS_NAME, System.currentTimeMillis(), eventListenerWithPayloads, "localhost", zookeeperHelper, clusterConf);
+    haxwellConsumer.start();
+    haxwellConsumerWithPayloads.start();
+  }
+
+  @After
+  public void tearDown() throws IOException {
+    haxwellConsumer.stop();
+    haxwellConsumerWithPayloads.stop();
+    haxwellSubscription.removeSubscription(SUBSCRIPTION_NAME);
+    haxwellSubscription.removeSubscription(SUBSCRIPTION_WITH_PAYLOADS_NAME);
+    zookeeperHelper.close();
+  }
+
+  @Test
+  public void testEvents_SimpleSetOfPuts() throws IOException {
+    for (int i = 0; i < 3; i++) {
+      Put put = new Put(Bytes.toBytes("row " + i));
+      put.addColumn(DATA_COL_FAMILY, Bytes.toBytes("qualifier"), Bytes.toBytes("value"));
+      htable.put(put);
+    }
+    waitForEvents(eventListener, 3);
+    waitForEvents(eventListenerWithPayloads, 3);
+
+    assertEquals(3, eventListener.getEvents().size());
+    assertEquals(3, eventListenerWithPayloads.getEvents().size());
+
+    Set<String> rowKeys = Sets.newHashSet();
+    for (HaxwellRow haxwellEvent : eventListener.getEvents()) {
+      rowKeys.add(haxwellEvent.getId());
+    }
+    assertEquals(Sets.newHashSet("row 0", "row 1", "row 2"), rowKeys);
+  }
+
+  private void waitForEvents(TestEventListener listener, int expectedNumEvents) {
+    long start = System.currentTimeMillis();
+    while (listener.getEvents().size() < expectedNumEvents) {
+      if (System.currentTimeMillis() - start > WAIT_TIMEOUT) {
+        throw new RuntimeException("Waited too long on " + expectedNumEvents + ", only have "
+            + listener.getEvents().size() + " after " + WAIT_TIMEOUT + " milliseconds");
+      }
+      try {
+        Thread.sleep(100);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new RuntimeException(e);
+      }
+    }
+  }
+
+  @Test
+  public void testEvents_MultipleKeyValuesInSinglePut() throws IOException {
+    Put putA = new Put(Bytes.toBytes("rowA"));
+    Put putB = new Put(Bytes.toBytes("rowB"));
+
+    putA.addColumn(DATA_COL_FAMILY, Bytes.toBytes("a1"), Bytes.toBytes("valuea1"));
+    putA.addColumn(DATA_COL_FAMILY, Bytes.toBytes("a2"), Bytes.toBytes("valuea2"));
+
+    putB.addColumn(DATA_COL_FAMILY, Bytes.toBytes("b1"), Bytes.toBytes("valueb1"));
+    putB.addColumn(DATA_COL_FAMILY, Bytes.toBytes("b2"), Bytes.toBytes("valueb2"));
+    putB.addColumn(DATA_COL_FAMILY, Bytes.toBytes("b3"), Bytes.toBytes("valueb3"));
+
+    htable.put(putA);
+    htable.put(putB);
+
+    waitForEvents(eventListener, 2);
+    waitForEvents(eventListenerWithPayloads, 2);
+
+    assertEquals(2, eventListenerWithPayloads.getEvents().size());
+
+    List<HaxwellRow> events = eventListener.getEvents();
+
+    assertEquals(2, events.size());
+
+    HaxwellRow eventA, eventB;
+    if ("rowA".equals(events.get(0).getId())) {
+      eventA = events.get(0);
+      eventB = events.get(1);
+    } else {
+      eventA = events.get(1);
+      eventB = events.get(0);
+    }
+    assertEquals("rowA", eventA.getId());
+    assertEquals("rowB", eventB.getId());
+  }
+
+  @Test
+  public void testEvents_WithPayload() throws IOException {
+    Put put = new Put(Bytes.toBytes("rowkey"));
+    put.addColumn(DATA_COL_FAMILY, Bytes.toBytes("data"), Bytes.toBytes("value"));
+    put.addColumn(PAYLOAD_COL_FAMILY, PAYLOAD_COL_QUALIFIER, Bytes.toBytes("payload"));
+    htable.put(put);
+
+    waitForEvents(eventListener, 1);
+    waitForEvents(eventListenerWithPayloads, 1);
+
+    HaxwellRow eventWithoutPayload = eventListener.getEvents().get(0);
+    HaxwellRow eventWithPayload = eventListenerWithPayloads.getEvents().get(0);
+
+    assertEquals("rowkey", eventWithoutPayload.getId());
+    assertEquals("rowkey", eventWithPayload.getId());
+
+    assertEquals(2, eventWithoutPayload.getColumns().size());
+    assertEquals(2, eventWithPayload.getColumns().size());
+  }
+
+  static class TestEventListener implements HaxwellEventListener {
+
+    private List<HaxwellRow> haxwellEvents = Collections.synchronizedList(Lists.newArrayList());
+
+    @Override
+    public synchronized void processEvents(List<HaxwellRow> events) {
+      haxwellEvents.addAll(events);
     }
 
-    @AfterClass
-    public static void tearDownAfterClass() throws Exception {
-        if (connection != null) {
-            connection.close();
-        }
-        hbaseTestUtil.shutdownMiniCluster();
+    public List<HaxwellRow> getEvents() {
+      return Collections.unmodifiableList(haxwellEvents);
     }
 
-    @Before
-    public void setUp() throws ZkConnectException, InterruptedException, KeeperException, IOException {
-        zookeeperHelper = new ZookeeperHelper("localhost:" + hbaseTestUtil.getZkCluster().getClientPort(),
-                30000);
-        haxwellSubscription = new HaxwellSubscriptionImpl(zookeeperHelper, clusterConf);
-        haxwellSubscription.addSubscription(SUBSCRIPTION_NAME);
-        haxwellSubscription.addSubscription(SUBSCRIPTION_WITH_PAYLOADS_NAME);
-        eventListener = new TestEventListener();
-        eventListenerWithPayloads = new TestEventListener();
-        haxwellConsumer = new HaxwellConsumer(SUBSCRIPTION_NAME, System.currentTimeMillis(), eventListener, "localhost",
-                zookeeperHelper, clusterConf);
-        haxwellConsumerWithPayloads = new HaxwellConsumer(SUBSCRIPTION_WITH_PAYLOADS_NAME, System.currentTimeMillis(), eventListenerWithPayloads, "localhost", zookeeperHelper, clusterConf);
-        haxwellConsumer.start();
-        haxwellConsumerWithPayloads.start();
+    public void reset() {
+      haxwellEvents.clear();
     }
 
-    @After
-    public void tearDown() throws IOException {
-        haxwellConsumer.stop();
-        haxwellConsumerWithPayloads.stop();
-        haxwellSubscription.removeSubscription(SUBSCRIPTION_NAME);
-        haxwellSubscription.removeSubscription(SUBSCRIPTION_WITH_PAYLOADS_NAME);
-        zookeeperHelper.close();
-    }
-
-    @Test
-    public void testEvents_SimpleSetOfPuts() throws IOException {
-        for (int i = 0; i < 3; i++) {
-            Put put = new Put(Bytes.toBytes("row " + i));
-            put.addColumn(DATA_COL_FAMILY, Bytes.toBytes("qualifier"), Bytes.toBytes("value"));
-            htable.put(put);
-        }
-        waitForEvents(eventListener, 3);
-        waitForEvents(eventListenerWithPayloads, 3);
-
-        assertEquals(3, eventListener.getEvents().size());
-        assertEquals(3, eventListenerWithPayloads.getEvents().size());
-
-        Set<String> rowKeys = Sets.newHashSet();
-        for (HaxwellRow haxwellEvent : eventListener.getEvents()) {
-            rowKeys.add(haxwellEvent.getId());
-        }
-        assertEquals(Sets.newHashSet("row 0", "row 1", "row 2"), rowKeys);
-    }
-
-    @Test
-    public void testEvents_MultipleKeyValuesInSinglePut() throws IOException {
-        Put putA = new Put(Bytes.toBytes("rowA"));
-        Put putB = new Put(Bytes.toBytes("rowB"));
-
-        putA.addColumn(DATA_COL_FAMILY, Bytes.toBytes("a1"), Bytes.toBytes("valuea1"));
-        putA.addColumn(DATA_COL_FAMILY, Bytes.toBytes("a2"), Bytes.toBytes("valuea2"));
-
-        putB.addColumn(DATA_COL_FAMILY, Bytes.toBytes("b1"), Bytes.toBytes("valueb1"));
-        putB.addColumn(DATA_COL_FAMILY, Bytes.toBytes("b2"), Bytes.toBytes("valueb2"));
-        putB.addColumn(DATA_COL_FAMILY, Bytes.toBytes("b3"), Bytes.toBytes("valueb3"));
-
-        htable.put(putA);
-        htable.put(putB);
-
-        waitForEvents(eventListener, 2);
-        waitForEvents(eventListenerWithPayloads, 2);
-
-        assertEquals(2, eventListenerWithPayloads.getEvents().size());
-
-        List<HaxwellRow> events = eventListener.getEvents();
-
-        assertEquals(2, events.size());
-
-        HaxwellRow eventA, eventB;
-        if ("rowA".equals(events.get(0).getId())) {
-            eventA = events.get(0);
-            eventB = events.get(1);
-        } else {
-            eventA = events.get(1);
-            eventB = events.get(0);
-        }
-        assertEquals("rowA", eventA.getId());
-        assertEquals("rowB", eventB.getId());
-    }
-
-    @Test
-    public void testEvents_WithPayload() throws IOException {
-        Put put = new Put(Bytes.toBytes("rowkey"));
-        put.addColumn(DATA_COL_FAMILY, Bytes.toBytes("data"), Bytes.toBytes("value"));
-        put.addColumn(PAYLOAD_COL_FAMILY, PAYLOAD_COL_QUALIFIER, Bytes.toBytes("payload"));
-        htable.put(put);
-
-        waitForEvents(eventListener, 1);
-        waitForEvents(eventListenerWithPayloads, 1);
-
-        HaxwellRow eventWithoutPayload = eventListener.getEvents().get(0);
-        HaxwellRow eventWithPayload = eventListenerWithPayloads.getEvents().get(0);
-
-        assertEquals("rowkey", eventWithoutPayload.getId());
-        assertEquals("rowkey", eventWithPayload.getId());
-
-        assertEquals(2, eventWithoutPayload.getColumns().size());
-        assertEquals(2, eventWithPayload.getColumns().size());
-    }
-
-    private void waitForEvents(TestEventListener listener, int expectedNumEvents) {
-        long start = System.currentTimeMillis();
-        while (listener.getEvents().size() < expectedNumEvents) {
-            if (System.currentTimeMillis() - start > WAIT_TIMEOUT) {
-                throw new RuntimeException("Waited too long on " + expectedNumEvents + ", only have "
-                        + listener.getEvents().size() + " after " + WAIT_TIMEOUT + " milliseconds");
-            }
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
-    static class TestEventListener implements HaxwellEventListener {
-
-        private List<HaxwellRow> haxwellEvents = Collections.synchronizedList(Lists.newArrayList());
-
-        @Override
-        public synchronized void processEvents(List<HaxwellRow> events) {
-            haxwellEvents.addAll(events);
-        }
-
-        public List<HaxwellRow> getEvents() {
-            return Collections.unmodifiableList(haxwellEvents);
-        }
-
-        public void reset() {
-            haxwellEvents.clear();
-        }
-
-    }
+  }
 
 }

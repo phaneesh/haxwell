@@ -19,5 +19,5 @@ import org.apache.zookeeper.KeeperException;
 
 public interface ZooKeeperOperation<T> {
 
-    T execute() throws KeeperException, InterruptedException;
+  T execute() throws KeeperException, InterruptedException;
 }

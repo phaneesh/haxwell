@@ -21,25 +21,15 @@ import java.util.stream.Collectors;
 @Builder
 public class HaxwellRow {
 
-  public enum OperationType {
-    PUT,
-    DELETE,
-    UNKNOWN
-  }
-
   private String tableName;
-
   private String id;
-
   private long timestamp;
-
   private OperationType operation;
-
   private List<HaxwellColumn> columns;
 
   public static HaxwellRow create(final byte[] tableName, final byte[] rowKey, final List<Cell> cells,
                                   final OperationType operationType, final long timestamp) {
-    final List<HaxwellColumn> columns = cells.stream().map( cell ->
+    final List<HaxwellColumn> columns = cells.stream().map(cell ->
         HaxwellColumn.builder()
             .columnFamily(Bytes.toString(CellUtil.cloneFamily(cell)))
             .columnName(Bytes.toString(CellUtil.cloneQualifier(cell)))
@@ -53,6 +43,12 @@ public class HaxwellRow {
         .timestamp(timestamp)
         .columns(columns)
         .build();
+  }
+
+  public enum OperationType {
+    PUT,
+    DELETE,
+    UNKNOWN
   }
 
 }

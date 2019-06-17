@@ -23,21 +23,21 @@ import java.io.IOException;
 
 public class HaxwellDefaultEventPublisher implements HaxwellEventPublisher {
 
-    private final Table payloadTable;
-    private final byte[] payloadColumnFamily;
-    private final byte[] payloadColumnQualifier;
+  private final Table payloadTable;
+  private final byte[] payloadColumnFamily;
+  private final byte[] payloadColumnQualifier;
 
-    public HaxwellDefaultEventPublisher(Table payloadTable, byte[] payloadColumnFamily, byte[] payloadColumnQualifier) {
-        this.payloadTable = payloadTable;
-        this.payloadColumnFamily = payloadColumnFamily;
-        this.payloadColumnQualifier = payloadColumnQualifier;
-    }
+  public HaxwellDefaultEventPublisher(Table payloadTable, byte[] payloadColumnFamily, byte[] payloadColumnQualifier) {
+    this.payloadTable = payloadTable;
+    this.payloadColumnFamily = payloadColumnFamily;
+    this.payloadColumnQualifier = payloadColumnQualifier;
+  }
 
-    @Override
-    public void publishEvent(byte[] row, byte[] payload) throws IOException {
-        Put eventPut = new Put(row);
-        eventPut.addColumn(payloadColumnFamily, payloadColumnQualifier, payload);
-        payloadTable.put(eventPut);
-    }
+  @Override
+  public void publishEvent(byte[] row, byte[] payload) throws IOException {
+    Put eventPut = new Put(row);
+    eventPut.addColumn(payloadColumnFamily, payloadColumnQualifier, payload);
+    payloadTable.put(eventPut);
+  }
 
 }

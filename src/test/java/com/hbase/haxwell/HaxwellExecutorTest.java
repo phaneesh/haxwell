@@ -38,137 +38,137 @@ import static org.mockito.Mockito.when;
 
 public class HaxwellExecutorTest {
 
-    private HaxwellMetrics haxwellMetrics;
-    private List<ThreadPoolExecutor> executors;
+  private HaxwellMetrics haxwellMetrics;
+  private List<ThreadPoolExecutor> executors;
 
-    @Before
-    public void setUp() {
-        haxwellMetrics = mock(HaxwellMetrics.class);
-        executors = Lists.newArrayListWithCapacity(10);
-        for (int i = 0; i < 10; i++) {
-            ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 10, TimeUnit.SECONDS,
-                    new ArrayBlockingQueue<>(100));
-            executor.setRejectedExecutionHandler(new WaitPolicy());
-            executors.add(executor);
-        }
+  @Before
+  public void setUp() {
+    haxwellMetrics = mock(HaxwellMetrics.class);
+    executors = Lists.newArrayListWithCapacity(10);
+    for (int i = 0; i < 10; i++) {
+      ThreadPoolExecutor executor = new ThreadPoolExecutor(1, 1, 10, TimeUnit.SECONDS,
+          new ArrayBlockingQueue<>(100));
+      executor.setRejectedExecutionHandler(new WaitPolicy());
+      executors.add(executor);
+    }
+  }
+
+  @After
+  public void tearDown() {
+    for (ThreadPoolExecutor executor : executors) {
+      executor.shutdownNow();
+    }
+  }
+
+  @Test
+  public void testScheduleHaxwellSubscription() throws InterruptedException {
+    RecordingEventListener eventListener = new RecordingEventListener();
+    HaxwellEventExecutor executor = new HaxwellEventExecutor(eventListener, getExecutors(2), 1, haxwellMetrics);
+    final int NUM_EVENTS = 10;
+    for (int i = 0; i < NUM_EVENTS; i++) {
+      executor.scheduleHaxwellEvent(createHaxwellSubscription(i));
     }
 
-    @After
-    public void tearDown() {
-        for (ThreadPoolExecutor executor : executors) {
-            executor.shutdownNow();
-        }
+    for (int retry = 0; retry < 50; retry++) {
+      if (eventListener.receivedEvents.size() >= NUM_EVENTS) {
+        break;
+      }
+      Thread.sleep(250);
     }
 
-    private HaxwellRow createHaxwellSubscription(int row) {
-        HaxwellRow haxwellEvent = mock(HaxwellRow.class);
-        when(haxwellEvent.getId()).thenReturn(String.valueOf(row));
-        return haxwellEvent;
+    assertEquals(NUM_EVENTS, eventListener.receivedEvents.size());
+  }
+
+  private List<ThreadPoolExecutor> getExecutors(int numThreads) {
+    return executors.subList(0, numThreads);
+  }
+
+  private HaxwellRow createHaxwellSubscription(int row) {
+    HaxwellRow haxwellEvent = mock(HaxwellRow.class);
+    when(haxwellEvent.getId()).thenReturn(String.valueOf(row));
+    return haxwellEvent;
+  }
+
+  @Test
+  public void testScheduleHaxwellSubscription_NotFullBatch() throws InterruptedException {
+    RecordingEventListener eventListener = new RecordingEventListener();
+    HaxwellEventExecutor executor = new HaxwellEventExecutor(eventListener, getExecutors(2), 100, haxwellMetrics);
+    final int NUM_EVENTS = 10;
+    for (int i = 0; i < NUM_EVENTS; i++) {
+      executor.scheduleHaxwellEvent(createHaxwellSubscription(i));
     }
 
-    private List<ThreadPoolExecutor> getExecutors(int numThreads) {
-        return executors.subList(0, numThreads);
+    Thread.sleep(50); // Give us a little bit of time to ensure nothing cam through yet
+
+    assertTrue(eventListener.receivedEvents.isEmpty());
+
+    List<Future<?>> futures = executor.flush();
+    assertFalse(futures.isEmpty());
+
+    for (int retry = 0; retry < 50; retry++) {
+      if (eventListener.receivedEvents.size() >= NUM_EVENTS) {
+        break;
+      }
+      Thread.sleep(250);
     }
 
-    @Test
-    public void testScheduleHaxwellSubscription() throws InterruptedException {
-        RecordingEventListener eventListener = new RecordingEventListener();
-        HaxwellEventExecutor executor = new HaxwellEventExecutor(eventListener, getExecutors(2), 1, haxwellMetrics);
-        final int NUM_EVENTS = 10;
-        for (int i = 0; i < NUM_EVENTS; i++) {
-            executor.scheduleHaxwellEvent(createHaxwellSubscription(i));
-        }
+    assertEquals(NUM_EVENTS, eventListener.receivedEvents.size());
+  }
 
-        for (int retry = 0; retry < 50; retry++) {
-            if (eventListener.receivedEvents.size() >= NUM_EVENTS) {
-                break;
-            }
-            Thread.sleep(250);
-        }
+  @Test
+  public void testScheduleHaxwellSubscription_EventOverflow() throws InterruptedException {
+    DelayingEventListener eventListener = new DelayingEventListener();
+    HaxwellEventExecutor executor = new HaxwellEventExecutor(eventListener, getExecutors(1), 1, haxwellMetrics);
+    final int NUM_EVENTS = 50;
+    for (int i = 0; i < NUM_EVENTS; i++) {
+      executor.scheduleHaxwellEvent(createHaxwellSubscription(i));
+    }
+    List<Future<?>> futures = executor.flush();
 
-        assertEquals(NUM_EVENTS, eventListener.receivedEvents.size());
+    // We're running with a single thread and no batching, so there should be just as many
+    // futures as there are events
+    assertEquals(NUM_EVENTS, futures.size());
+
+    Thread.sleep(500);
+
+    for (int retry = 0; retry < 50; retry++) {
+      if (eventListener.receivedEvents.size() >= NUM_EVENTS) {
+        break;
+      }
+      Thread.sleep(250);
     }
 
-    @Test
-    public void testScheduleHaxwellSubscription_NotFullBatch() throws InterruptedException {
-        RecordingEventListener eventListener = new RecordingEventListener();
-        HaxwellEventExecutor executor = new HaxwellEventExecutor(eventListener, getExecutors(2), 100, haxwellMetrics);
-        final int NUM_EVENTS = 10;
-        for (int i = 0; i < NUM_EVENTS; i++) {
-            executor.scheduleHaxwellEvent(createHaxwellSubscription(i));
-        }
+    assertEquals(NUM_EVENTS, eventListener.receivedEvents.size());
 
-        Thread.sleep(50); // Give us a little bit of time to ensure nothing cam through yet
+  }
 
-        assertTrue(eventListener.receivedEvents.isEmpty());
+  static class RecordingEventListener implements HaxwellEventListener {
 
-        List<Future<?>> futures = executor.flush();
-        assertFalse(futures.isEmpty());
+    List<HaxwellRow> receivedEvents = Lists.newArrayList();
 
-        for (int retry = 0; retry < 50; retry++) {
-            if (eventListener.receivedEvents.size() >= NUM_EVENTS) {
-                break;
-            }
-            Thread.sleep(250);
-        }
-
-        assertEquals(NUM_EVENTS, eventListener.receivedEvents.size());
+    @Override
+    public synchronized void processEvents(List<HaxwellRow> events) {
+      receivedEvents.addAll(events);
     }
 
-    @Test
-    public void testScheduleHaxwellSubscription_EventOverflow() throws InterruptedException {
-        DelayingEventListener eventListener = new DelayingEventListener();
-        HaxwellEventExecutor executor = new HaxwellEventExecutor(eventListener, getExecutors(1), 1, haxwellMetrics);
-        final int NUM_EVENTS = 50;
-        for (int i = 0; i < NUM_EVENTS; i++) {
-            executor.scheduleHaxwellEvent(createHaxwellSubscription(i));
+  }
+
+  static class DelayingEventListener implements HaxwellEventListener {
+
+    List<HaxwellRow> receivedEvents = Collections.synchronizedList(Lists.newArrayList());
+
+    @Override
+    public void processEvents(List<HaxwellRow> events) {
+      for (HaxwellRow event : events) {
+        try {
+          Thread.sleep(250);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          throw new RuntimeException(e);
         }
-        List<Future<?>> futures = executor.flush();
-
-        // We're running with a single thread and no batching, so there should be just as many
-        // futures as there are events
-        assertEquals(NUM_EVENTS, futures.size());
-
-        Thread.sleep(500);
-
-        for (int retry = 0; retry < 50; retry++) {
-            if (eventListener.receivedEvents.size() >= NUM_EVENTS) {
-                break;
-            }
-            Thread.sleep(250);
-        }
-
-        assertEquals(NUM_EVENTS, eventListener.receivedEvents.size());
-
+        receivedEvents.add(event);
+      }
     }
 
-    static class RecordingEventListener implements HaxwellEventListener {
-
-        List<HaxwellRow> receivedEvents = Lists.newArrayList();
-
-        @Override
-        public synchronized void processEvents(List<HaxwellRow> events) {
-            receivedEvents.addAll(events);
-        }
-
-    }
-
-    static class DelayingEventListener implements HaxwellEventListener {
-
-        List<HaxwellRow> receivedEvents = Collections.synchronizedList(Lists.newArrayList());
-
-        @Override
-        public void processEvents(List<HaxwellRow> events) {
-            for (HaxwellRow event : events) {
-                try {
-                    Thread.sleep(250);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException(e);
-                }
-                receivedEvents.add(event);
-            }
-        }
-
-    }
+  }
 }

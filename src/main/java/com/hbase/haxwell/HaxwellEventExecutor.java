@@ -31,67 +31,67 @@ import java.util.concurrent.ThreadPoolExecutor;
 
 public class HaxwellEventExecutor {
 
-    private Log log = LogFactory.getLog(getClass());
-    private HaxwellEventListener eventListener;
-    private int numThreads;
-    private int batchSize;
-    private HaxwellMetrics HaxwellMetrics;
-    private List<ThreadPoolExecutor> executors;
-    private Multimap<Integer, HaxwellRow> eventBuffers;
-    private List<Future<?>> futures;
-    private HashFunction hashFunction = Hashing.murmur3_32();
-    private boolean stopped = false;
+  private Log log = LogFactory.getLog(getClass());
+  private HaxwellEventListener eventListener;
+  private int numThreads;
+  private int batchSize;
+  private HaxwellMetrics HaxwellMetrics;
+  private List<ThreadPoolExecutor> executors;
+  private Multimap<Integer, HaxwellRow> eventBuffers;
+  private List<Future<?>> futures;
+  private HashFunction hashFunction = Hashing.murmur3_32();
+  private boolean stopped = false;
 
-    public HaxwellEventExecutor(HaxwellEventListener eventListener, List<ThreadPoolExecutor> executors, int batchSize, HaxwellMetrics haxwellMetrics) {
-        this.eventListener = eventListener;
-        this.executors = executors;
-        this.numThreads = executors.size();
-        this.batchSize = batchSize;
-        this.HaxwellMetrics = haxwellMetrics;
-        eventBuffers = ArrayListMultimap.create(numThreads, batchSize);
-        futures = Lists.newArrayList();
+  public HaxwellEventExecutor(HaxwellEventListener eventListener, List<ThreadPoolExecutor> executors, int batchSize, HaxwellMetrics haxwellMetrics) {
+    this.eventListener = eventListener;
+    this.executors = executors;
+    this.numThreads = executors.size();
+    this.batchSize = batchSize;
+    this.HaxwellMetrics = haxwellMetrics;
+    eventBuffers = ArrayListMultimap.create(numThreads, batchSize);
+    futures = Lists.newArrayList();
+  }
+
+  public void scheduleHaxwellEvent(HaxwellRow haxwellRow) {
+
+    if (stopped) {
+      throw new IllegalStateException("This executor is stopped");
     }
 
-    public void scheduleHaxwellEvent(HaxwellRow haxwellRow) {
-
-        if (stopped) {
-            throw new IllegalStateException("This executor is stopped");
-        }
-
-        // We don't want messages of the same row to be processed concurrently, therefore choose
-        // a thread based on the hash of the row key
-        int partition = (hashFunction.hashString(haxwellRow.getId()).asInt() & Integer.MAX_VALUE) % numThreads;
-        List<HaxwellRow> eventBuffer = (List<HaxwellRow>) eventBuffers.get(partition);
-        eventBuffer.add(haxwellRow);
-        if (eventBuffer.size() == batchSize) {
-            scheduleEventBatch(partition, Lists.newArrayList(eventBuffer));
-            eventBuffers.removeAll(partition);
-        }
+    // We don't want messages of the same row to be processed concurrently, therefore choose
+    // a thread based on the hash of the row key
+    int partition = (hashFunction.hashString(haxwellRow.getId()).asInt() & Integer.MAX_VALUE) % numThreads;
+    List<HaxwellRow> eventBuffer = (List<HaxwellRow>) eventBuffers.get(partition);
+    eventBuffer.add(haxwellRow);
+    if (eventBuffer.size() == batchSize) {
+      scheduleEventBatch(partition, Lists.newArrayList(eventBuffer));
+      eventBuffers.removeAll(partition);
     }
+  }
 
-    private void scheduleEventBatch(int partition, final List<HaxwellRow> events) {
-        Future<?> future = executors.get(partition).submit(() -> {
-            try {
-                long before = System.currentTimeMillis();
-                log.debug("Delivering message to listener");
-                eventListener.processEvents(events);
-                HaxwellMetrics.reportFilteredOperation(System.currentTimeMillis() - before);
-            } catch (RuntimeException e) {
-                log.error("Error while processing event", e);
-                throw e;
-            }
-        });
-        futures.add(future);
-    }
+  private void scheduleEventBatch(int partition, final List<HaxwellRow> events) {
+    Future<?> future = executors.get(partition).submit(() -> {
+      try {
+        long before = System.currentTimeMillis();
+        log.debug("Delivering message to listener");
+        eventListener.processEvents(events);
+        HaxwellMetrics.reportFilteredOperation(System.currentTimeMillis() - before);
+      } catch (RuntimeException e) {
+        log.error("Error while processing event", e);
+        throw e;
+      }
+    });
+    futures.add(future);
+  }
 
-    public List<Future<?>> flush() {
-        for (int partition : eventBuffers.keySet()) {
-            List<HaxwellRow> buffer = (List<HaxwellRow>) eventBuffers.get(partition);
-            if (!buffer.isEmpty()) {
-                scheduleEventBatch(partition, Lists.newArrayList(buffer));
-            }
-        }
-        eventBuffers.clear();
-        return Lists.newArrayList(futures);
+  public List<Future<?>> flush() {
+    for (int partition : eventBuffers.keySet()) {
+      List<HaxwellRow> buffer = (List<HaxwellRow>) eventBuffers.get(partition);
+      if (!buffer.isEmpty()) {
+        scheduleEventBatch(partition, Lists.newArrayList(buffer));
+      }
     }
+    eventBuffers.clear();
+    return Lists.newArrayList(futures);
+  }
 }

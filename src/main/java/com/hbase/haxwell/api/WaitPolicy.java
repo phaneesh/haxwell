@@ -22,28 +22,28 @@ import java.util.concurrent.TimeUnit;
 
 public class WaitPolicy implements RejectedExecutionHandler {
 
-    private final long _time;
-    private final TimeUnit _timeUnit;
+  private final long _time;
+  private final TimeUnit _timeUnit;
 
-    public WaitPolicy() {
-        this(Long.MAX_VALUE, TimeUnit.SECONDS);
-    }
+  public WaitPolicy() {
+    this(Long.MAX_VALUE, TimeUnit.SECONDS);
+  }
 
-    public WaitPolicy(long time, TimeUnit timeUnit) {
-        super();
-        _time = (time < 0 ? Long.MAX_VALUE : time);
-        _timeUnit = timeUnit;
-    }
+  public WaitPolicy(long time, TimeUnit timeUnit) {
+    super();
+    _time = (time < 0 ? Long.MAX_VALUE : time);
+    _timeUnit = timeUnit;
+  }
 
-    @Override
-    public void rejectedExecution(Runnable r, ThreadPoolExecutor e) {
-        try {
-            if (e.isShutdown() || !e.getQueue().offer(r, _time, _timeUnit)) {
-                throw new RejectedExecutionException();
-            }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw new RejectedExecutionException(ie);
-        }
+  @Override
+  public void rejectedExecution(Runnable r, ThreadPoolExecutor e) {
+    try {
+      if (e.isShutdown() || !e.getQueue().offer(r, _time, _timeUnit)) {
+        throw new RejectedExecutionException();
+      }
+    } catch (InterruptedException ie) {
+      Thread.currentThread().interrupt();
+      throw new RejectedExecutionException(ie);
     }
+  }
 }

@@ -25,39 +25,39 @@ import static org.mockito.Mockito.mock;
 
 public class HaxwellSubscriptionTest {
 
-    @Test(expected = IllegalStateException.class)
-    public void testInstantiate_InvalidZkQuorumString() {
-        Configuration conf = HBaseConfiguration.create();
+  @Test(expected = IllegalStateException.class)
+  public void testInstantiate_InvalidZkQuorumString() {
+    Configuration conf = HBaseConfiguration.create();
 
-        conf.set("hbase.zookeeper.quorum", "host:2181");
+    conf.set("hbase.zookeeper.quorum", "host:2181");
 
-        new HaxwellSubscriptionImpl(mock(ZookeeperHelper.class), conf);
-    }
+    new HaxwellSubscriptionImpl(mock(ZookeeperHelper.class), conf);
+  }
 
-    @Test(expected = IllegalStateException.class)
-    public void testInstantiate_NonNumericZkClientPort() {
-        Configuration conf = HBaseConfiguration.create();
+  @Test(expected = IllegalStateException.class)
+  public void testInstantiate_NonNumericZkClientPort() {
+    Configuration conf = HBaseConfiguration.create();
 
-        conf.set("hbase.zookeeper.property.clientPort", "not a number");
+    conf.set("hbase.zookeeper.property.clientPort", "not a number");
 
-        new HaxwellSubscriptionImpl(mock(ZookeeperHelper.class), conf);
-    }
+    new HaxwellSubscriptionImpl(mock(ZookeeperHelper.class), conf);
+  }
 
 
-    @Test
-    public void testToInternalSubscriptionName_NoSpecialCharacters() {
-        assertEquals("subscription_name", HaxwellSubscriptionImpl.toInternalSubscriptionName("subscription_name"));
-    }
+  @Test
+  public void testToInternalSubscriptionName_NoSpecialCharacters() {
+    assertEquals("subscription_name", HaxwellSubscriptionImpl.toInternalSubscriptionName("subscription_name"));
+  }
 
-    @Test
-    public void testToInternalSubscriptionName_HyphenMapping() {
-        assertEquals("subscription" + HaxwellSubscriptionImpl.INTERNAL_HYPHEN_REPLACEMENT + "name", HaxwellSubscriptionImpl.toInternalSubscriptionName("subscription-name"));
-    }
+  @Test
+  public void testToInternalSubscriptionName_HyphenMapping() {
+    assertEquals("subscription" + HaxwellSubscriptionImpl.INTERNAL_HYPHEN_REPLACEMENT + "name", HaxwellSubscriptionImpl.toInternalSubscriptionName("subscription-name"));
+  }
 
-    @Test(expected = IllegalArgumentException.class)
-    public void testToInternalSubscriptionName_NameContainsMappedHyphen() {
-        // We can't allow the internal hyphen replacement to ever be present on an external name,
-        // otherwise we could get duplicate mapped names
-        HaxwellSubscriptionImpl.toInternalSubscriptionName("subscription" + HaxwellSubscriptionImpl.INTERNAL_HYPHEN_REPLACEMENT + "name");
-    }
+  @Test(expected = IllegalArgumentException.class)
+  public void testToInternalSubscriptionName_NameContainsMappedHyphen() {
+    // We can't allow the internal hyphen replacement to ever be present on an external name,
+    // otherwise we could get duplicate mapped names
+    HaxwellSubscriptionImpl.toInternalSubscriptionName("subscription" + HaxwellSubscriptionImpl.INTERNAL_HYPHEN_REPLACEMENT + "name");
+  }
 }

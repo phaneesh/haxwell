@@ -32,32 +32,32 @@ import static org.mockito.Mockito.verify;
 
 public class HaxwellEventPublisherTest {
 
-    private static final byte[] PAYLOAD_CF = Bytes.toBytes("payload column family");
-    private static final byte[] PAYLOAD_CQ = Bytes.toBytes("payload column qualifier");
+  private static final byte[] PAYLOAD_CF = Bytes.toBytes("payload column family");
+  private static final byte[] PAYLOAD_CQ = Bytes.toBytes("payload column qualifier");
 
-    private Table recordTable;
-    private HaxwellDefaultEventPublisher eventPublisher;
+  private Table recordTable;
+  private HaxwellDefaultEventPublisher eventPublisher;
 
-    @Before
-    public void setUp() {
-        recordTable = mock(Table.class);
-        eventPublisher = new HaxwellDefaultEventPublisher(recordTable, PAYLOAD_CF, PAYLOAD_CQ);
-    }
+  @Before
+  public void setUp() {
+    recordTable = mock(Table.class);
+    eventPublisher = new HaxwellDefaultEventPublisher(recordTable, PAYLOAD_CF, PAYLOAD_CQ);
+  }
 
-    @Test
-    public void testPublishEvent() throws IOException {
-        byte[] eventRow = Bytes.toBytes("row-id");
-        byte[] eventPayload = Bytes.toBytes("payload");
+  @Test
+  public void testPublishEvent() throws IOException {
+    byte[] eventRow = Bytes.toBytes("row-id");
+    byte[] eventPayload = Bytes.toBytes("payload");
 
-        ArgumentCaptor<Put> putCaptor = ArgumentCaptor.forClass(Put.class);
+    ArgumentCaptor<Put> putCaptor = ArgumentCaptor.forClass(Put.class);
 
-        eventPublisher.publishEvent(eventRow, eventPayload);
+    eventPublisher.publishEvent(eventRow, eventPayload);
 
-        verify(recordTable).put(putCaptor.capture());
-        Put put = putCaptor.getValue();
+    verify(recordTable).put(putCaptor.capture());
+    Put put = putCaptor.getValue();
 
-        assertArrayEquals(eventRow, put.getRow());
-        assertEquals(1, put.size());
-        assertArrayEquals(eventPayload, CellUtil.cloneValue(put.get(PAYLOAD_CF, PAYLOAD_CQ).get(0)));
-    }
+    assertArrayEquals(eventRow, put.getRow());
+    assertEquals(1, put.size());
+    assertArrayEquals(eventPayload, CellUtil.cloneValue(put.get(PAYLOAD_CF, PAYLOAD_CQ).get(0)));
+  }
 }
