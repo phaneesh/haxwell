@@ -16,10 +16,10 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
+        <haxwell.core.version>1.0</haxwell.core.version>
         <hdp.stack.version>2.6.1.0-129</hdp.stack.version>
         <hbase.version>1.1.2.${hdp.stack.version}</hbase.version>
         <hadoop.version>2.7.3.${hdp.stack.version}</hadoop.version>
-        <lombok.version>1.18.2</lombok.version>
     </properties>
 
 
@@ -100,9 +100,9 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>${lombok.version}</version>
+            <groupId>com.hbase.haxwell</groupId>
+            <artifactId>haxwell-core</artifactId>
+            <version>${haxwell.core.version}</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
