@@ -51,6 +51,7 @@ import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZooDefs;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -93,6 +94,10 @@ public class HaxwellConsumer extends HaxwellRegionServer {
     this.hbaseConf = hbaseConf;
     this.haxwellMetrics = new HaxwellMetrics(subscriptionId);
     this.executors = Lists.newArrayListWithCapacity(threadCount);
+
+    if(hostName == null && hostName.isEmpty()) {
+      hostName = InetAddress.getLocalHost().getHostName();
+    }
 
     InetSocketAddress initialIsa = new InetSocketAddress(hostName, 0);
     if (initialIsa.getAddress() == null) {
